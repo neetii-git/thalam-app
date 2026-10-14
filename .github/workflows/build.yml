@@ -1,0 +1,143 @@
+# Builds Thalam on a free GitHub-hosted Mac, so the project can be checked
+# (and an installable .ipa produced) without owning a Mac.
+#
+#   build       - every push: iOS Simulator + watchOS Simulator builds, plus an
+#                 unsigned device build packaged as .ipa files (Actions > run > Artifacts)
+#   testflight  - only when started by hand with "testflight" ticked, and only
+#                 with a PAID Apple Developer account (see README, "Route B")
+
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: "Also upload to TestFlight (needs a paid Apple Developer account + secrets)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -E "iphone|watch"
+
+      - name: Make sure the watchOS Simulator is installed
+        run: |
+          if ! xcrun simctl list runtimes | grep -q watchOS; then
+            echo "watchOS Simulator runtime missing - downloading it"
+            xcodebuild -downloadPlatform watchOS
+          fi
+          xcrun simctl list runtimes
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Thalam.xcodeproj
+        run: xcodegen generate
+
+      - name: Build iPhone app (with embedded Watch app) for iOS Simulator
+        run: |
+          xcodebuild -project Thalam.xcodeproj -scheme Thalam \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO -quiet build
+
+      - name: Build Watch app for watchOS Simulator
+        run: |
+          xcodebuild -project Thalam.xcodeproj -scheme "Thalam Watch App" \
+            -destination 'generic/platform=watchOS Simulator' \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO -quiet build
+
+      - name: Build for real devices (unsigned)
+        run: |
+          xcodebuild -project Thalam.xcodeproj -scheme Thalam -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/device CODE_SIGNING_ALLOWED=NO -quiet build
+
+      - name: Package .ipa files
+        run: |
+          APP="build/device/Build/Products/Release-iphoneos/Thalam.app"
+          echo "Watch app embedded at:"; ls "$APP/Watch"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/
+          (cd build/ipa && zip -qry ../Thalam-with-watch-unsigned.ipa Payload)
+          # Free-Apple-ID sideloading tools can't install Watch apps, so also
+          # make an iPhone-only copy (use "Also tap on this iPhone" mode).
+          rm -rf build/ipa/Payload/Thalam.app/Watch
+          (cd build/ipa && zip -qry ../Thalam-iphone-only-unsigned.ipa Payload)
+          ls -lh build/*.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Thalam-ipa
+          path: build/*.ipa
+          retention-days: 14
+
+  testflight:
+    if: github.event_name == 'workflow_dispatch' && inputs.testflight
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        run: |
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64 TEAM_ID; do
+            if [ -z "${!name}" ]; then echo "Missing repository secret $name (see README)"; exit 1; fi
+          done
+
+      - name: Install XcodeGen and generate project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Write App Store Connect API key
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+
+      - name: Archive (signed automatically in the cloud)
+        run: |
+          xcodebuild -project Thalam.xcodeproj -scheme Thalam -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/Thalam.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            -quiet archive
+
+      - name: Upload to TestFlight
+        run: |
+          cat > build/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive -archivePath build/Thalam.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
