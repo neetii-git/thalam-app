@@ -88,12 +88,19 @@ jobs:
   # Runs the unit tests (tala patterns, startAt maths, real beat-timing
   # accuracy) and takes screenshots of both apps in the Simulators.
   simulator:
-    runs-on: macos-26
-    timeout-minutes: 45
+    # Intel runner: the Apple Silicon (macos-26) pool kept failing to pick this job up.
+    runs-on: macos-15-intel
+    timeout-minutes: 60
     permissions:
       contents: write   # pushes test log + screenshots to the ci-results branch
     steps:
       - uses: actions/checkout@v4
+
+      - name: Use the newest Xcode on the runner
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
       - name: Install XcodeGen and generate project
         run: |
