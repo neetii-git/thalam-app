@@ -29,6 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Use the newest Xcode on the runner
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          echo "::notice::build job uses $(xcodebuild -version | tr '\n' ' ') from $XCODE; installed: $(ls -d /Applications/Xcode_*.app | xargs -n1 basename | tr '\n' ' ')"
+
       - name: Xcode version
         run: |
           xcodebuild -version
