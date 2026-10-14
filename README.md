@@ -81,6 +81,23 @@ Pick one route.
 
 ### Route A: borrow a Mac for ~45 minutes (free Apple ID). Recommended.
 
+**Before you sit down (the 45 minutes only holds if these are done):**
+
+* **Versions match.** Check iPhone **Settings → General → About → iOS Version** and the Watch's
+  watchOS version. The Mac's Xcode must be the **same major version or newer** (iOS 26 → Xcode 26;
+  iOS 27 → Xcode 27), or Xcode can't install to the phone. Newer Xcode needs a recent macOS, so check
+  the Mac can run it.
+* **Download ahead.** Have the Mac's owner install/update Xcode **the night before** and open it
+  once. It is ~10 GB, and the first launch also downloads iOS and watchOS support (several GB more).
+* **Bring:** iPhone cable (USB-C or Lightning to the Mac's port), charged iPhone + Watch, your
+  Apple ID password and a second device for its 2-factor code.
+* **Update nothing on the day.** Don't let the iPhone or Watch install an iOS/watchOS update
+  between now and the demo.
+* **Free-team limits:** up to 3 of your apps per device and 10 new bundle IDs per week. Thalam uses
+  2 IDs (phone + Watch), so avoid changing `THALAM_BUNDLE_ID` more than needed.
+* After installing you can **give the Mac back**. The demo needs no Mac and works for 7 days, so
+  installing the evening before is fine.
+
 1. On the Mac: install **Xcode** from the App Store and open it once.
 2. Get the code: on github.com/eshanshuman/thalam click **Code → Download ZIP**, unzip it,
    then in Terminal: `cd ~/Downloads/thalam-main && chmod +x build.sh && ./build.sh --open`
