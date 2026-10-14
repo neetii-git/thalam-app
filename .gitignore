@@ -14,3 +14,5 @@ DerivedData/
 .DS_Store
 xcuserdata/
 *.xcuserstate
+tools/xcodegen/
+tools/xcodegen.zip

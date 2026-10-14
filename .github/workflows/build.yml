@@ -49,23 +49,9 @@ jobs:
           fi
           xcrun simctl list runtimes
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
-      - name: Generate Thalam.xcodeproj
-        run: xcodegen generate
-
-      - name: Build iPhone app (with embedded Watch app) for iOS Simulator
-        run: |
-          xcodebuild -project Thalam.xcodeproj -scheme Thalam \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO -quiet build
-
-      - name: Build Watch app for watchOS Simulator
-        run: |
-          xcodebuild -project Thalam.xcodeproj -scheme "Thalam Watch App" \
-            -destination 'generic/platform=watchOS Simulator' \
-            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO -quiet build
+      # Exactly what README tells you to run on a Mac (downloads XcodeGen, no Homebrew).
+      - name: ./build.sh (generate + Simulator builds)
+        run: ./build.sh
 
       - name: Build for real devices (unsigned)
         run: |
