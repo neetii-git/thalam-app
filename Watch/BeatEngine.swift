@@ -84,9 +84,11 @@ final class BeatEngine: ObservableObject {
             return true
 
         case .stop:
+            // A stop while idle (e.g. an old one left in the mailbox) must do
+            // nothing, or it would end the workout the phone just woke us with.
+            guard isPlaying else { return false }
             scheduler.stop()
             workout.end()
-            guard isPlaying else { return false }
             isPlaying = false
             currentBeat = nil
             return true

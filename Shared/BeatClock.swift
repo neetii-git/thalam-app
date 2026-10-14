@@ -16,6 +16,12 @@ struct BeatClock: Equatable {
     /// Beats per minute.
     let bpm: Int
 
+    /// Two clocks are "the same" if their start times agree to within 1 ms.
+    /// (A date sent over WatchConnectivity can come back a few nanoseconds off.)
+    static func == (a: BeatClock, b: BeatClock) -> Bool {
+        a.bpm == b.bpm && abs(a.startAt.timeIntervalSince(b.startAt)) < 0.001
+    }
+
     /// Seconds between two beats. 80 BPM -> 0.75 s.
     var secondsPerBeat: TimeInterval { 60.0 / Double(bpm) }
 

@@ -13,6 +13,12 @@ struct WatchRootView: View {
                 WatchIdleView()
             }
         }
+        #if DEBUG
+        .task {
+            // Used by the CI screenshot job: launching with -autostart starts Adi at 80.
+            if ProcessInfo.processInfo.arguments.contains("-autostart") { engine.startStandalone() }
+        }
+        #endif
     }
 }
 

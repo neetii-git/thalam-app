@@ -13,6 +13,9 @@ options:
 
 settings:
   base:
+    # The ONE place to change the app's bundle ID (the Watch app adds .watchkitapp).
+    # If Xcode says it is already taken, change it here, e.g. com.eshan2006.thalam
+    THALAM_BUNDLE_ID: com.eshan.thalam
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
@@ -32,10 +35,12 @@ targets:
     dependencies:
       # Embeds the Watch app inside the iPhone app (Thalam.app/Watch/).
       - target: Thalam Watch App
-    scheme: {}
+    scheme:
+      testTargets:
+        - ThalamTests
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.eshan.thalam
+        PRODUCT_BUNDLE_IDENTIFIER: $(THALAM_BUNDLE_ID)
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_PREVIEWS: YES
@@ -71,7 +76,7 @@ targets:
     scheme: {}
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.eshan.thalam.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: $(THALAM_BUNDLE_ID).watchkitapp
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_PREVIEWS: YES
     info:
@@ -81,10 +86,14 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
-        WKCompanionAppBundleIdentifier: com.eshan.thalam
+        WKCompanionAppBundleIdentifier: $(THALAM_BUNDLE_ID)
         # Lets the workout session keep the app running with the screen off.
         WKBackgroundModes:
           - workout-processing
+        # Apple: haptics played in the background during a workout also need
+        # the audio background mode. (No audio is actually played.)
+        UIBackgroundModes:
+          - audio
         ITSAppUsesNonExemptEncryption: false
         NSHealthShareUsageDescription: Thalam uses a workout session so your Apple Watch keeps tapping the tala while your wrist is down. It does not read your health data.
         NSHealthUpdateUsageDescription: Thalam starts a dance workout so your watch keeps tapping the tala while your wrist is down.
@@ -93,3 +102,17 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+
+  # ----------------------------------------------------------------- Tests
+  # Unit tests for the shared code: tala patterns, startAt maths and real
+  # beat-timing accuracy. The shared files are compiled straight in.
+  ThalamTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(THALAM_BUNDLE_ID).tests
+        GENERATE_INFOPLIST_FILE: YES

@@ -17,6 +17,10 @@ struct PracticeView: View {
         .animation(.easeInOut(duration: 0.25), value: model.isPlaying)
         .task {
             model.requestHealthAuthorization()
+            #if DEBUG
+            // Used by the CI screenshot job: launching with -autostart presses Start.
+            if ProcessInfo.processInfo.arguments.contains("-autostart") { model.start() }
+            #endif
         }
     }
 }

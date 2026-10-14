@@ -52,8 +52,12 @@ final class PhoneConnector: NSObject, ObservableObject, WCSessionDelegate {
         remember(command)  // the mailbox always holds the latest state
 
         if session.isReachable {
-            session.sendMessage(command.dictionary, replyHandler: nil) { error in
+            session.sendMessage(command.dictionary, replyHandler: nil) { [weak self] error in
                 print("sendMessage failed (the mailbox still has it): \(error.localizedDescription)")
+                // The watch looked reachable but wasn't: wake it up instead.
+                if case .start = command {
+                    DispatchQueue.main.async { self?.wakeWatchApp() }
+                }
             }
         } else if case .start = command, session.isWatchAppInstalled {
             // The Watch app isn't running: wake it up. It then reads the
@@ -83,6 +87,16 @@ final class PhoneConnector: NSObject, ObservableObject, WCSessionDelegate {
                 print("Could not wake the watch app: \(error?.localizedDescription ?? "unknown error")")
             }
         }
+    }
+
+    /// The mailbox only holds the other device's LATEST state, but that can
+    /// still be older than ours (e.g. an old "start" from before we pressed
+    /// Stop). Only act on it if it was sent after our own latest state.
+    private func handleContext(_ context: [String: Any]) {
+        let theirs = context[ThalamCommand.Key.sentAt] as? Double ?? 0
+        let mine = WCSession.default.applicationContext[ThalamCommand.Key.sentAt] as? Double ?? 0
+        guard theirs > mine else { return }
+        handle(context)
     }
 
     private func handle(_ dictionary: [String: Any]) {
@@ -119,7 +133,7 @@ final class PhoneConnector: NSObject, ObservableObject, WCSessionDelegate {
         // If the Watch started playing on its own while this app was closed,
         // show it here too.
         if activationState == .activated {
-            handle(session.receivedApplicationContext)
+            handleContext(session.receivedApplicationContext)
         }
     }
 
@@ -143,6 +157,6 @@ final class PhoneConnector: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        handle(applicationContext)
+        handleContext(applicationContext)
     }
 }

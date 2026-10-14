@@ -45,7 +45,17 @@ final class WatchConnector: NSObject, WCSessionDelegate {
     /// Re-reads the last command the iPhone left in the mailbox.
     func applyLatestContext() {
         guard WCSession.default.activationState == .activated else { return }
-        handle(WCSession.default.receivedApplicationContext)
+        handleContext(WCSession.default.receivedApplicationContext)
+    }
+
+    /// The mailbox only holds the other device's LATEST state, but that can
+    /// still be older than ours (e.g. an old "start" from before we pressed
+    /// Stop). Only act on it if it was sent after our own latest state.
+    private func handleContext(_ context: [String: Any]) {
+        let theirs = context[ThalamCommand.Key.sentAt] as? Double ?? 0
+        let mine = WCSession.default.applicationContext[ThalamCommand.Key.sentAt] as? Double ?? 0
+        guard theirs > mine else { return }
+        handle(context)
     }
 
     private func handle(_ dictionary: [String: Any]) {
@@ -64,7 +74,7 @@ final class WatchConnector: NSObject, WCSessionDelegate {
         // If the iPhone pressed Start while this app was closed, the start
         // command is waiting in the mailbox: join in, in step.
         if activationState == .activated {
-            handle(session.receivedApplicationContext)
+            handleContext(session.receivedApplicationContext)
         }
     }
 
@@ -73,6 +83,6 @@ final class WatchConnector: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        handle(applicationContext)
+        handleContext(applicationContext)
     }
 }

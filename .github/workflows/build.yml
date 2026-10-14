@@ -84,6 +84,77 @@ jobs:
           path: build/*.ipa
           retention-days: 14
 
+  # Runs the unit tests (tala patterns, startAt maths, real beat-timing
+  # accuracy) and takes screenshots of both apps in the Simulators.
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen and generate project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick simulators
+        run: |
+          echo "IPHONE=$(python3 tools/pick_simulator.py iOS iPhone)" >> "$GITHUB_ENV"
+          echo "WATCH=$(python3 tools/pick_simulator.py watchOS 'Apple Watch')" >> "$GITHUB_ENV"
+
+      - name: Unit tests (incl. 15 s beat-timing test)
+        run: |
+          mkdir -p build
+          xcodebuild -project Thalam.xcodeproj -scheme Thalam \
+            -destination "id=$IPHONE" -derivedDataPath build/test \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee build/test.log | grep -E "Test Case|BEAT TIMING|error:|\*\* TEST" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" build/test.log
+
+      - name: Build apps for the Simulators
+        run: |
+          xcodebuild -project Thalam.xcodeproj -scheme Thalam \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO -quiet build
+
+      - name: Screenshots
+        run: |
+          mkdir -p shots
+          PRODUCTS=build/sim/Build/Products
+          xcrun simctl boot "$IPHONE" || true
+          xcrun simctl boot "$WATCH" || true
+          xcrun simctl bootstatus "$IPHONE" -b
+          xcrun simctl bootstatus "$WATCH" -b
+          xcrun simctl status_bar "$IPHONE" override --time 9:41 || true
+          xcrun simctl install "$IPHONE" "$PRODUCTS/Debug-iphonesimulator/Thalam.app"
+          xcrun simctl install "$WATCH" "$PRODUCTS/Debug-watchsimulator/Thalam Watch App.app"
+
+          xcrun simctl launch "$IPHONE" com.eshan.thalam
+          sleep 6
+          xcrun simctl io "$IPHONE" screenshot shots/1-iphone-setup.png
+          xcrun simctl terminate "$IPHONE" com.eshan.thalam
+          xcrun simctl launch "$IPHONE" com.eshan.thalam -autostart
+          sleep 5
+          xcrun simctl io "$IPHONE" screenshot shots/2-iphone-playing.png
+
+          xcrun simctl launch "$WATCH" com.eshan.thalam.watchkitapp
+          sleep 6
+          xcrun simctl io "$WATCH" screenshot shots/3-watch-idle.png
+          xcrun simctl terminate "$WATCH" com.eshan.thalam.watchkitapp
+          xcrun simctl launch "$WATCH" com.eshan.thalam.watchkitapp -autostart
+          sleep 4
+          xcrun simctl io "$WATCH" screenshot shots/4-watch-playing.png
+          sleep 0.4
+          xcrun simctl io "$WATCH" screenshot shots/5-watch-playing.png
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Thalam-screenshots-and-tests
+          path: |
+            shots/
+            build/test.log
+          retention-days: 14
+
   testflight:
     if: github.event_name == 'workflow_dispatch' && inputs.testflight
     runs-on: macos-26
