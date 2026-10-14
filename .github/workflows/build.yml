@@ -10,6 +10,7 @@ name: Build
 
 on:
   push:
+    branches-ignore: [ci-results]
   workflow_dispatch:
     inputs:
       testflight:
@@ -89,6 +90,8 @@ jobs:
   simulator:
     runs-on: macos-26
     timeout-minutes: 45
+    permissions:
+      contents: write   # pushes test log + screenshots to the ci-results branch
     steps:
       - uses: actions/checkout@v4
 
@@ -103,11 +106,16 @@ jobs:
           echo "WATCH=$(python3 tools/pick_simulator.py watchOS 'Apple Watch')" >> "$GITHUB_ENV"
 
       - name: Unit tests (incl. 15 s beat-timing test)
+        id: tests
+        continue-on-error: true   # still take screenshots; the job fails at the end
         run: |
           mkdir -p build
           xcodebuild -project Thalam.xcodeproj -scheme Thalam \
             -destination "id=$IPHONE" -derivedDataPath build/test \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | tee build/test.log | grep -E "Test Case|BEAT TIMING|error:|\*\* TEST" || true
+          # Annotations are readable through the API even where log downloads aren't.
+          grep -E "BEAT TIMING" build/test.log | head -3 | sed 's/^/::notice::/' || true
+          grep -E "error:|Test Case .* failed|\*\* TEST FAILED" build/test.log | head -15 | cut -c1-400 | sed 's/^/::error::/' || true
           grep -q "\*\* TEST SUCCEEDED \*\*" build/test.log
 
       - name: Build apps for the Simulators
@@ -154,6 +162,19 @@ jobs:
             shots/
             build/test.log
           retention-days: 14
+
+      - name: Publish results to the ci-results branch
+        if: always()
+        run: |
+          mkdir -p out && cp -R shots out/ 2>/dev/null || true
+          cp build/test.log out/ 2>/dev/null || true
+          cd out && git init -q && git checkout -q -b ci-results
+          git add -A && git -c user.name=ci -c user.email=ci@localhost commit -q -m "CI results for ${{ github.sha }}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-results
+
+      - name: Fail if the unit tests failed
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
 
   testflight:
     if: github.event_name == 'workflow_dispatch' && inputs.testflight
