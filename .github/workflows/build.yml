@@ -144,7 +144,7 @@ jobs:
           xcrun simctl install "$WATCH" "$PRODUCTS/Debug-watchsimulator/Thalam Watch App.app"
 
           xcrun simctl launch "$IPHONE" com.eshan.thalam
-          sleep 6
+          sleep 15   # first launch on the Intel runner is slow
           xcrun simctl io "$IPHONE" screenshot shots/1-iphone-setup.png
           xcrun simctl terminate "$IPHONE" com.eshan.thalam
           xcrun simctl launch "$IPHONE" com.eshan.thalam -autostart
