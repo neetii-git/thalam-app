@@ -32,7 +32,7 @@ struct SetupView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("THALAM")
                         .font(.caption.weight(.bold))
@@ -65,7 +65,7 @@ struct SetupView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Also tap on this iPhone")
                             .font(.subheadline.weight(.semibold))
-                        Text("Armband mode, or a backup if the watch isn't with you")
+                        Text("For an armband, or as a backup")
                             .font(.caption)
                             .foregroundStyle(Color.maroon.opacity(0.65))
                     }
@@ -79,6 +79,7 @@ struct SetupView: View {
         .safeAreaInset(edge: .bottom) {
             BigButton(title: "Start feeling the beat", systemImage: "play.fill", action: model.start)
                 .padding(.horizontal, 20)
+                .padding(.top, 10)
                 .padding(.bottom, 8)
                 .background(Color.ivory.opacity(0.95).ignoresSafeArea())
         }
