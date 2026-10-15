@@ -79,12 +79,13 @@ struct WatchPlayingView: View {
                     BeatRingView(tala: tala, currentPosition: position, samDotSize: 16, showNumbers: false)
 
                     VStack(spacing: 0) {
-                        // Beat number within the cycle, e.g. "5"
-                        Text(position.map { "\($0 + 1)" } ?? "·")
+                        // Beat number within the cycle, e.g. "5"; during the
+                        // count-in, the taps left before sam ("2", "1").
+                        Text(position.map { "\($0 + 1)" } ?? engine.countIn.map { "\($0)" } ?? "·")
                             .font(.system(size: 40, weight: .semibold, design: .serif))
                             .monospacedDigit()
                             .foregroundStyle(kind?.color ?? Color.ivory)
-                        Text(kind?.label ?? "Ready")
+                        Text(kind?.label ?? (engine.countIn == nil ? "Ready" : "Get ready"))
                             .font(.system(.footnote, design: .serif))
                             .foregroundStyle(Color.ivory)
                     }

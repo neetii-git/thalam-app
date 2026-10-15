@@ -123,10 +123,12 @@ struct PlayingView: View {
 
                 // Centre label: "Sam" / "Clap" / "count"
                 VStack(spacing: 4) {
-                    Text(kind?.label ?? "Ready")
+                    Text(kind?.label ?? model.countIn.map { "\($0)" } ?? "Ready")
                         .font(.system(size: 42, weight: .regular, design: .serif))
+                        .monospacedDigit()
                         .foregroundStyle(kind?.color ?? Color.ivory)
-                    Text(position.map { "beat \($0 + 1) of \(tala.beatCount)" } ?? "starting…")
+                    Text(position.map { "beat \($0 + 1) of \(tala.beatCount)" }
+                         ?? (model.countIn == nil ? "starting…" : "get ready"))
                         .font(.footnote)
                         .monospacedDigit()
                         .foregroundStyle(Color.ivory.opacity(0.75))

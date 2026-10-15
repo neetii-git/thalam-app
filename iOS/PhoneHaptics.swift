@@ -40,10 +40,18 @@ final class PhoneHaptics {
 
     /// Plays one tap for a beat.
     func play(_ kind: BeatKind) {
+        play(Self.feel(for: kind))
+    }
+
+    /// A "get ready" tap before sam: short and crisp, unlike any beat.
+    func playCountIn() {
+        play((intensity: 0.6, sharpness: 1.0, buzz: 0))
+    }
+
+    private func play(_ feel: (intensity: Float, sharpness: Float, buzz: TimeInterval)) {
         prepare()
         guard let engine else { return }
 
-        let feel = Self.feel(for: kind)
         let parameters = [
             CHHapticEventParameter(parameterID: .hapticIntensity, value: feel.intensity),
             CHHapticEventParameter(parameterID: .hapticSharpness, value: feel.sharpness),

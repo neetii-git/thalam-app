@@ -14,6 +14,8 @@ final class BeatEngine: ObservableObject {
     @Published private(set) var isPlaying = false
     /// Running beat number of the latest tap (0, 1, 2, ...), nil until beat 0.
     @Published private(set) var currentBeat: Int?
+    /// Count-in taps left before sam (2, then 1), nil otherwise.
+    @Published private(set) var countIn: Int?
 
     private let scheduler = BeatScheduler()
     private let workout = WorkoutKeeper()
@@ -21,6 +23,9 @@ final class BeatEngine: ObservableObject {
     private init() {
         scheduler.onBeat = { [weak self] beat in
             self?.tap(beat)
+        }
+        scheduler.onCountIn = { [weak self] left in
+            self?.countInTap(left)
         }
     }
 
@@ -37,7 +42,7 @@ final class BeatEngine: ObservableObject {
         let command = ThalamCommand.start(
             talaID: Tala.adi.id,
             bpm: Tempo.defaultBPM,
-            startAt: Date().addingTimeInterval(1.5)
+            startAt: BeatClock.startAt(forStartPressedAt: Date(), bpm: Tempo.defaultBPM)
         )
         apply(command)
         WatchConnector.shared.send(command)
@@ -78,9 +83,11 @@ final class BeatEngine: ObservableObject {
             tala = newTala
             self.bpm = clock.bpm
             currentBeat = nil
+            countIn = nil
             isPlaying = true
             workout.begin()          // keeps us tapping with the screen off
-            scheduler.start(clock)   // taps start at startAt
+            // Two "get ready" taps, then sam at startAt.
+            scheduler.start(clock, countIn: BeatClock.countInBeats)
             return true
 
         case .stop:
@@ -91,6 +98,7 @@ final class BeatEngine: ObservableObject {
             workout.end()
             isPlaying = false
             currentBeat = nil
+            countIn = nil
             return true
         }
     }
@@ -101,7 +109,14 @@ final class BeatEngine: ObservableObject {
     private func tap(_ beat: Int) {
         // Haptic first, so nothing (not even a UI update) can delay it.
         WKInterfaceDevice.current().play(tala.kind(ofBeat: beat).haptic)
+        countIn = nil
         currentBeat = beat
+    }
+
+    /// A "get ready" tap before sam. It feels different from every beat kind.
+    private func countInTap(_ left: Int) {
+        WKInterfaceDevice.current().play(.start)
+        countIn = left
     }
 }
 

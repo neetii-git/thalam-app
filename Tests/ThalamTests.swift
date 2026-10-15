@@ -54,6 +54,23 @@ final class BeatClockTests: XCTestCase {
         XCTAssertEqual(clock.nextBeatNumber(after: start.addingTimeInterval(-5)), 0)
         XCTAssertEqual(clock.nextBeatNumber(after: start.addingTimeInterval(0.8)), 2)
     }
+
+    func testCountInBeatsComeBeforeSam() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        let clock = BeatClock(startAt: start, bpm: 80)
+        // Well before the count-in: the first beat is -2.
+        XCTAssertEqual(clock.nextBeatNumber(after: start.addingTimeInterval(-5), notBefore: -2), -2)
+        // Between the two count-in taps (-1.5 s and -0.75 s): next is -1.
+        XCTAssertEqual(clock.nextBeatNumber(after: start.addingTimeInterval(-1.0), notBefore: -2), -1)
+        XCTAssertEqual(clock.time(ofBeat: -2).timeIntervalSince(start), -1.5, accuracy: 1e-9)
+
+        // Start pressed now: first count-in tap 1.5 s later, sam two beats after that.
+        let now = Date(timeIntervalSince1970: 2_000)
+        let startAt = BeatClock.startAt(forStartPressedAt: now, bpm: 80)
+        XCTAssertEqual(startAt.timeIntervalSince(now), 1.5 + 2 * 0.75, accuracy: 1e-9)
+        let firstTap = BeatClock(startAt: startAt, bpm: 80).time(ofBeat: -BeatClock.countInBeats)
+        XCTAssertEqual(firstTap.timeIntervalSince(now), BeatClock.messageLead, accuracy: 1e-9)
+    }
 }
 
 final class ThalamCommandTests: XCTestCase {
@@ -130,6 +147,50 @@ final class BeatSchedulerTests: XCTestCase {
 
         XCTAssertEqual(first?.beat, 3)
         XCTAssertLessThan(abs(first?.lateness ?? 1), 0.05)
+    }
+
+    /// Two "get ready" taps (2, then 1) come one beat apart, then sam on time.
+    func testCountInThenSam() {
+        let scheduler = BeatScheduler()
+        let clock = BeatClock(startAt: Date().addingTimeInterval(0.4 + 2 * 0.375), bpm: 160)
+        var events: [(label: String, lateness: TimeInterval)] = []
+        let done = expectation(description: "count-in and sam")
+
+        scheduler.onCountIn = { left in
+            events.append(("in\(left)", Date().timeIntervalSince(clock.time(ofBeat: -left))))
+        }
+        scheduler.onBeat = { beat in
+            events.append(("beat\(beat)", Date().timeIntervalSince(clock.time(ofBeat: beat))))
+            if beat == 0 { done.fulfill() }
+        }
+        scheduler.start(clock, countIn: 2)
+        wait(for: [done], timeout: 5)
+        scheduler.stop()
+
+        XCTAssertEqual(events.map(\.label), ["in2", "in1", "beat0"])
+        for event in events {
+            XCTAssertLessThan(abs(event.lateness), 0.05, "\(event.label) should be on time")
+        }
+    }
+
+    /// Joining after the count-in has passed skips it and falls straight into step.
+    func testLateJoinSkipsCountIn() {
+        let scheduler = BeatScheduler()
+        let clock = BeatClock(startAt: Date().addingTimeInterval(-1.0), bpm: 120)
+        var countIns = 0
+        var first: Int?
+        let done = expectation(description: "first beat")
+
+        scheduler.onCountIn = { _ in countIns += 1 }
+        scheduler.onBeat = { beat in
+            if first == nil { first = beat; done.fulfill() }
+        }
+        scheduler.start(clock, countIn: 2)
+        wait(for: [done], timeout: 5)
+        scheduler.stop()
+
+        XCTAssertEqual(countIns, 0)
+        XCTAssertEqual(first, 3)
     }
 
     func testStopStopsTheBeats() {

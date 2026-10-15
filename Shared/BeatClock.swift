@@ -37,10 +37,27 @@ struct BeatClock: Equatable {
         return Int(elapsed / secondsPerBeat)
     }
 
-    /// The first beat that is still in the future at `date`.
-    /// Lets a device that joins late fall straight into step.
-    func nextBeatNumber(after date: Date) -> Int {
-        guard let current = beatNumber(at: date) else { return 0 }
-        return current + 1
+    /// The first beat that is still in the future at `date`, but never before
+    /// beat `first`. Lets a device that joins late fall straight into step.
+    /// (`first` is negative during a count-in: beats -2 and -1 come before sam.)
+    func nextBeatNumber(after date: Date, notBefore first: Int = 0) -> Int {
+        let elapsed = date.timeIntervalSince(startAt)
+        let next = Int((elapsed / secondsPerBeat).rounded(.down)) + 1
+        return max(first, next)
+    }
+
+    // MARK: - Starting
+
+    /// "Get ready" taps before the first sam, one beat apart (beats -2 and -1).
+    static let countInBeats = 2
+
+    /// Time for the start message to reach the Watch before its first tap.
+    static let messageLead: TimeInterval = 1.5
+
+    /// The startAt for a Start pressed at `now`: the first count-in tap comes
+    /// `messageLead` after now, and sam follows the count-in.
+    static func startAt(forStartPressedAt now: Date, bpm: Int) -> Date {
+        let beat = 60.0 / Double(bpm)
+        return now.addingTimeInterval(messageLead + Double(countInBeats) * beat)
     }
 }

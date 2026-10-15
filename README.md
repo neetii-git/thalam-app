@@ -18,8 +18,12 @@ Talas: **Adi** (8) `S c c c C w C w` · **Rupaka** (3) `S C c` · **Misra Chapu*
 The iPhone never sends a message per beat. On Start it sends **one** message:
 
 ```
-{ command: "start", tala: "adi", bpm: 80, startAt: now + 1.5 s }
+{ command: "start", tala: "adi", bpm: 80, startAt: now + 1.5 s + 2 beats }
 ```
+
+**Count-in:** before the first sam, both devices give two "get ready" taps one beat apart
+(beats -2 and -1, a crisp tap that feels unlike any beat; the screens show **2**, **1**),
+so the dancer comes in exactly on sam. The first count-in tap lands 1.5 s after Start.
 
 Both devices then compute every beat themselves with the same formula:
 
@@ -155,7 +159,8 @@ Free sideloading cannot install Watch apps.
    follows her guru's hands and keeps slipping off the tala."
 2. **(10–20 s) Set the tala.** On the iPhone, tap **Adi Talam**. "Big dot is sam, the
    medium dots are claps." Leave **80 BPM**. Point at the status row: **Watch connected**.
-3. **(20–35 s) Feel it.** Press **Start feeling the beat**. About 1.5 s later the Watch taps.
+3. **(20–35 s) Feel it.** Press **Start feeling the beat**. About 1.5 s later the Watch gives two "get ready"
+   taps (**2**, **1** on screen), then sam.
    Hand the Watch to a judge: "Strong tap on sam, medium on the claps (beats 5 and 7), light on
    the counts." The iPhone ring lights up in step.
 4. **(35–45 s) Wrist down.** Lower the wrist so the screen goes dark. It keeps tapping.

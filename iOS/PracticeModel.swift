@@ -16,6 +16,8 @@ final class PracticeModel: ObservableObject {
     @Published private(set) var playingBPM: Int = Tempo.defaultBPM
     /// Running beat number (0, 1, 2, ...), nil until beat 0 arrives.
     @Published private(set) var currentBeat: Int?
+    /// Count-in taps left before sam (2, then 1), nil otherwise.
+    @Published private(set) var countIn: Int?
 
     let connector = PhoneConnector.shared
     private let scheduler = BeatScheduler()
@@ -26,6 +28,9 @@ final class PracticeModel: ObservableObject {
         // The ring uses the SAME startAt maths as the Watch, so it stays in step.
         scheduler.onBeat = { [weak self] beat in
             self?.beat(beat)
+        }
+        scheduler.onCountIn = { [weak self] left in
+            self?.countInTap(left)
         }
         // A command from the Watch (its Stop button, or its standalone Start):
         // apply it, and if it changed anything update our mailbox to match.
@@ -43,13 +48,14 @@ final class PracticeModel: ObservableObject {
     func slower() { bpm = Tempo.clamped(bpm - Tempo.step) }
     func faster() { bpm = Tempo.clamped(bpm + Tempo.step) }
 
-    /// Start: beat 0 happens 1.5 s from now, giving the message time to reach
-    /// the Watch. Both devices then count beats from that same moment.
+    /// Start: the first count-in tap comes 1.5 s from now, giving the message
+    /// time to reach the Watch; sam follows two beats later. Both devices
+    /// count beats from that same startAt.
     func start() {
         let command = ThalamCommand.start(
             talaID: selectedTala.id,
             bpm: bpm,
-            startAt: Date().addingTimeInterval(1.5)
+            startAt: BeatClock.startAt(forStartPressedAt: Date(), bpm: bpm)
         )
         apply(command)
         connector.send(command)
@@ -88,10 +94,11 @@ final class PracticeModel: ObservableObject {
             selectedTala = tala
             self.bpm = clock.bpm
             currentBeat = nil
+            countIn = nil
             isPlaying = true
             UIApplication.shared.isIdleTimerDisabled = true  // keep the ring on screen
             if tapsOnPhone { phoneHaptics.prepare() }
-            scheduler.start(clock)
+            scheduler.start(clock, countIn: BeatClock.countInBeats)
             return true
 
         case .stop:
@@ -100,6 +107,7 @@ final class PracticeModel: ObservableObject {
             phoneHaptics.stop()
             isPlaying = false
             currentBeat = nil
+            countIn = nil
             UIApplication.shared.isIdleTimerDisabled = false
             return true
         }
@@ -110,6 +118,15 @@ final class PracticeModel: ObservableObject {
         if tapsOnPhone {
             phoneHaptics.play(playingTala.kind(ofBeat: beat))
         }
+        countIn = nil
         currentBeat = beat
+    }
+
+    /// Called for each "get ready" tap before sam.
+    private func countInTap(_ left: Int) {
+        if tapsOnPhone {
+            phoneHaptics.playCountIn()
+        }
+        countIn = left
     }
 }

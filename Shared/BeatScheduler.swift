@@ -12,9 +12,14 @@ import Foundation
 final class BeatScheduler {
     /// Called on the main thread with the running beat number (0, 1, 2, ...).
     var onBeat: ((Int) -> Void)?
+    /// Called on the main thread for each count-in tap before sam, with the
+    /// number of taps left including this one (2, then 1).
+    var onCountIn: ((Int) -> Void)?
 
     private(set) var clock: BeatClock?
     private var nextBeat = 0
+    /// How many count-in beats come before beat 0.
+    private var countIn = 0
     private var timer: DispatchSourceTimer?
 
     /// A beat we notice more than this late is skipped instead of played
@@ -24,12 +29,16 @@ final class BeatScheduler {
 
     var isRunning: Bool { clock != nil }
 
-    func start(_ clock: BeatClock) {
+    /// Starts calling back on each beat. With `countIn` > 0, that many
+    /// count-in taps (beats -countIn ... -1) come first, one beat apart.
+    func start(_ clock: BeatClock, countIn: Int = 0) {
         stop()
         self.clock = clock
-        // Normally this is beat 0. If we join after startAt (e.g. the watch app
-        // opened late) we skip ahead to the next beat and are instantly in step.
-        nextBeat = clock.nextBeatNumber(after: Date())
+        self.countIn = max(0, countIn)
+        // Normally this is the first count-in beat (or beat 0). If we join late
+        // (e.g. the watch app opened late) we skip ahead to the next beat and
+        // are instantly in step.
+        nextBeat = clock.nextBeatNumber(after: Date(), notBefore: -self.countIn)
 
         // A GCD timer on the main queue. `.strict` asks the system not to
         // bunch it together with other timers to save power.
@@ -74,11 +83,15 @@ final class BeatScheduler {
         }
 
         if lateness <= maxLateness {
-            onBeat?(nextBeat)
+            if nextBeat < 0 {
+                onCountIn?(-nextBeat)
+            } else {
+                onBeat?(nextBeat)
+            }
         }
 
         // Move on to the next beat that is still ahead of us.
-        nextBeat = max(nextBeat + 1, clock.nextBeatNumber(after: now))
+        nextBeat = max(nextBeat + 1, clock.nextBeatNumber(after: now, notBefore: -countIn))
         scheduleTimerForNextBeat()
     }
 }
