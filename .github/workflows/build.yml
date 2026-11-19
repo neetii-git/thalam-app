@@ -4,7 +4,7 @@
 #   build       - every push: iOS Simulator + watchOS Simulator builds, plus an
 #                 unsigned device build packaged as .ipa files (Actions > run > Artifacts)
 #   testflight  - only when started by hand with "testflight" ticked, and only
-#                 with a PAID Apple Developer account (see README, "Route B")
+#                 with a PAID Apple Developer account (see docs/INSTALL.md, "Route B")
 
 name: Build
 
